@@ -1,0 +1,93 @@
+- hosts: Cisco_ios_XE_devices
+  gather_facts: no
+  connection: network_cli
+  vars_prompt:
+    - name: user_input
+      prompt: "Enter the IP address you would like to check:"
+  roles:
+    - clay584.parse_genie
+  vars:
+    ansible_user: xxxx
+   ansible_password: xxxxx
+    ansible_network_os: ios
+    ansible_become: yes
+    ansible_become_method: enable
+    ansible_become_password: xxxxx
+    ansible_command_timeout: 1200
+    Make: Cisco
+  tasks:
+    - name: Display user input
+      debug:
+        var: user_input
+    - name: Run show ip int brief command
+      ios_command:
+        commands:
+          - "show ip int brief | in {{ user_input }}"
+      register: interfaces1
+
+
+    - name: Remove old final_output folder
+      file:
+        path: /home/test/automation/RIPE/final_output
+        state: absent
+
+    - name: Create new final_output folder
+      file:
+        path: /home/test/automation/RIPE/final_output
+        state: directory
+
+
+    - name: Save parsed show ip interface brief output in a file
+      copy:
+        content: "{{ interfaces1 }}"
+        dest: /home/test/automation/RIPE/interface_details/interfaces_list1
+
+    - name: Print interfaces1
+      debug:
+        var: interfaces1
+
+    - name: Parse interfaces using Genie Filter
+      set_fact:
+         parsed_interfaces1: "{{ interfaces1.stdout[0] | parse_genie(command='show ip interface brief | include {ip_addresses_in_subnet}', os='ios') }}"
+      delegate_to: localhost
+
+    - name: Print parsed show ip int brief output
+      debug:
+        var: parsed_interfaces1
+    - name: Save parsed show ip interface output in a file
+      copy:
+        content: "{{ parsed_interfaces1 }}"
+        dest: /home/test/automation/RIPE/interface_details/output4
+
+    - name: Create file
+      template:
+       src: ripe_AP1.j2
+       dest: "/home/test/automation/RIPE/interfaces/{{inventory_hostname}}-interface-details1"
+       mode: 0744
+      connection: local
+      ignore_errors: yes
+    - name: Set exec
+      shell: chmod +x /home/test/automation/RIPE/interfaces/{{inventory_hostname}}-interface-details1
+      connection: local
+      ignore_errors: yes
+
+    - name: Execute the jinja template
+      shell: /home/test/automation/RIPE/interfaces/{{inventory_hostname}}-interface-details1 > /home/test/automation/RIPE/final_output/output_{{ inventory_hostname }}
+      connection: local
+      ignore_errors: yes
+
+    - name: Consolidate inventory files
+      assemble:
+         mode: '644'
+         src: /home/test/automation/RIPE/final_output
+         dest: /home/test/automation/RIPE/final_output/final_output_report
+
+    - mail:
+        host: vip-smtp.test.uk.pri.o2.com
+        port: 25
+        to: your email address
+        subject: "IP address details"
+        body: "Please find the interfaces where IP address {{user_input}} is used in the network."
+        attach:
+          - /home/test/automation/RIPE/final_output/final_output_report
+
