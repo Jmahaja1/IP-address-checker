@@ -1,0 +1,2 @@
+[Cisco_ios_XE_devices]
+cisco_ios_XE_device ansible_host=x.x.x.x
