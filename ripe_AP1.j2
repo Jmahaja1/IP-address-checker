@@ -1,0 +1,4 @@
+#!/bin/bash
+{% for int,int_value in  parsed_interfaces1.interface.items() %}
+sshpass -p your_password ssh your_username@{{ansible_host}} 'show run int {{  int }}'
+{% endfor %}
